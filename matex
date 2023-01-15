@@ -1,0 +1,111 @@
+#!/usr/bin/python3
+
+import matlab.engine
+import time
+import sys
+import os.path
+import io
+
+DESC = r"""USAGE:
+    matex [ -w | -i | filename ]
+
+OPTIONS:
+    filename            Path to matlab file to execute
+    -w | --workspace    Show workspace in terminal
+    -i | --interactive  Open interactive terminal
+
+DESCRIPTION:
+"""
+
+
+def workspace(engine: matlab.engine.matlabengine.MatlabEngine):
+    """Shows contents in matlab workspace"""
+    try:
+        while True:
+            file = io.StringIO()
+            buff = io.StringIO()
+            data = []
+            maxl = [0, 0, 0]
+            whos = str(engine.whos(nargout=0, stdout=file))
+
+            # parse workspace string
+            for line in file.getvalue().split('\n')[1:]:
+                if line == '':
+                    continue
+                (var, size) = line.split()[0:2]
+                val = str(engine.workspace[var])
+                data.append((var, size, val))
+
+                for i, v in enumerate((var, size, val)):
+                    maxl[i] = max(len(v), maxl[i])
+
+            # display
+            for var, size, val in data:
+                print(var.ljust(maxl[0]), size.ljust(maxl[1]), val if len(
+                    val) < 30 else f'{val[0:14]} ... {val[-14:]}', file=buff)
+
+            print(f'\033[2J\033[H{buff.getvalue()}')
+            time.sleep(0.5)
+
+    except KeyboardInterrupt:
+        exit(0)
+    except matlab.engine.EngineError as e:
+        print(f'{e}. Is the engine still running?')
+        exit(1)
+
+
+def interactive():
+    """Launches interactive session and engine"""
+    os.execvp('matlab', ('matlab', '-nosplash', '-nodesktop',
+              '-r', "matlab.engine.shareEngine('matex')"))
+
+
+def run_script(engine: matlab.engine.matlabengine.MatlabEngine, file: str):
+    """Uses a connected engine to run a matlab script"""
+
+    cwd = os.getcwd()
+    fullpath = os.path.join(cwd, file)
+    dirpath = os.path.dirname(fullpath)
+    basename = os.path.basename(fullpath)
+
+    # run script
+
+    try:
+        engine.cd(dirpath)
+        engine.__getattr__(basename.rstrip('.m'))(nargout=0)
+    except matlab.engine.MatlabExecutionError:
+        exit(1)
+
+
+def main():
+
+    # parse arguemts
+
+    args = sys.argv
+    if len(args) != 2:
+        print(DESC)
+        exit(1)
+
+    arg = args[1]
+    if arg in ['-i', '--interactive']:
+        interactive()
+        exit(0)
+
+    # connect to engine
+
+    try:
+        engine = matlab.engine.connect_matlab('matex')
+    except matlab.engine.EngineError as e:
+        print(f'{e}', file=sys.stderr)
+        exit(1)
+
+    arg = args[1]
+    if arg in ['-w', '--workspace']:
+        workspace(engine)
+        exit(0)
+
+    run_script(engine, arg)
+
+
+if __name__ == '__main__':
+    main()
