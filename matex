@@ -15,7 +15,8 @@ OPTIONS:
     -i | --interactive  Open interactive terminal
 
 DESCRIPTION:
-"""
+    Matlab script executioner and workspace viewer. Makes it
+    easy to write matlab scripts without using the matlab GUI."""
 
 
 def workspace(engine: matlab.engine.matlabengine.MatlabEngine):
@@ -79,7 +80,7 @@ def run_script(engine: matlab.engine.matlabengine.MatlabEngine, file: str):
 
 def main():
 
-    # parse arguemts
+    # parse arguments
 
     args = sys.argv
     if len(args) != 2:
